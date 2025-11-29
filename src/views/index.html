@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>蔬果大學訂單列印系統</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 頂部狀態列 -->
+    <div class="header">
+      <div class="header-left">
+        <h1>🌱 蔬果大學訂單列印系統</h1>
+        <div class="status" id="status">
+          <span class="status-indicator" id="statusIndicator"></span>
+          <span id="statusText">準備中...</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-secondary" id="manualSyncBtn">
+          <span>🔄</span> 手動同步
+        </button>
+        <button class="btn btn-toggle" id="toggleAutoPrintBtn">
+          <span id="toggleIcon">▶️</span>
+          <span id="toggleText">開啟自動列印</span>
+        </button>
+        <button class="btn btn-secondary" id="settingsBtn">
+          <span>⚙️</span> 設定
+        </button>
+      </div>
+    </div>
+
+    <!-- 統計資料卡片 -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">今日列印</div>
+        <div class="stat-value" id="todayCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">列印成功</div>
+        <div class="stat-value success" id="successCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">列印失敗</div>
+        <div class="stat-value error" id="failedCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">總計</div>
+        <div class="stat-value" id="totalCount">0</div>
+      </div>
+    </div>
+
+    <!-- 主要內容區 -->
+    <div class="main-content">
+      <!-- Tab 切換 -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="realtime">即時訂單</button>
+        <button class="tab-btn" data-tab="history">列印歷史</button>
+      </div>
+
+      <!-- 即時訂單 Tab -->
+      <div class="tab-content active" id="realtimeTab">
+        <div class="section-header">
+          <h2>即時訂單監控</h2>
+          <div class="last-check">
+            最後檢查: <span id="lastCheckTime">尚未檢查</span>
+          </div>
+        </div>
+
+        <div id="realtimeOrders" class="orders-list">
+          <div class="empty-state">
+            <div class="empty-icon">📦</div>
+            <div class="empty-text">等待新訂單...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列印歷史 Tab -->
+      <div class="tab-content" id="historyTab">
+        <div class="section-header">
+          <h2>列印歷史</h2>
+          <button class="btn btn-small" id="refreshHistoryBtn">🔄 重新整理</button>
+        </div>
+
+        <div id="historyOrders" class="orders-list">
+          <div class="loading">載入中...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 訊息提示 -->
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
