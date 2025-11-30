@@ -1,4 +1,4 @@
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
 const { BrowserWindow, Notification } = require('electron');
 const EventEmitter = require('events');
@@ -19,11 +19,11 @@ class OrderPrintManager extends EventEmitter {
       ...config
     };
 
-    // 初始化資料庫
+    // 初始化資料庫 (better-sqlite3 是同步的)
     const dbPath = path.join(require('electron').app.getPath('userData'), 'printed_orders.db');
-    this.db = new sqlite3.Database(dbPath);
+    this.db = new Database(dbPath);
 
-    this.dbReady = this.initDB();  // 等待資料庫初始化
+    this.initDB();  // 同步初始化資料庫
     this.isFirstRun = true;
     this.isSyncing = false;
     this.syncInterval = null;
@@ -31,53 +31,36 @@ class OrderPrintManager extends EventEmitter {
     this.currentOrders = [];  // 當前訂單列表
   }
 
-  async initDB() {
-    return new Promise((resolve, reject) => {
-      this.db.serialize(() => {
-        this.db.run(`
-          CREATE TABLE IF NOT EXISTS printed_orders (
-            order_id INTEGER PRIMARY KEY,
-            printed_at INTEGER NOT NULL,
-            order_date_added INTEGER NOT NULL,
-            ship_date INTEGER,
-            customer_name TEXT,
-            customer_phone TEXT,
-            total_price REAL,
-            print_status TEXT DEFAULT 'success'
-          )
-        `, (err) => {
-          if (err) {
-            console.error('建立資料表失敗:', err);
-            reject(err);
-          }
-        });
+  initDB() {
+    // better-sqlite3 使用同步 API
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS printed_orders (
+        order_id INTEGER PRIMARY KEY,
+        printed_at INTEGER NOT NULL,
+        order_date_added INTEGER NOT NULL,
+        ship_date INTEGER,
+        customer_name TEXT,
+        customer_phone TEXT,
+        total_price REAL,
+        print_status TEXT DEFAULT 'success'
+      )
+    `);
 
-        this.db.run(`
-          CREATE INDEX IF NOT EXISTS idx_printed_at
-          ON printed_orders(printed_at)
-        `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_printed_at
+      ON printed_orders(printed_at)
+    `);
 
-        this.db.run(`
-          CREATE INDEX IF NOT EXISTS idx_order_date
-          ON printed_orders(order_date_added)
-        `, (err) => {
-          if (err) {
-            console.error('建立索引失敗:', err);
-            reject(err);
-          } else {
-            console.log('✅ 資料庫初始化完成');
-            resolve();
-          }
-        });
-      });
-    });
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_order_date
+      ON printed_orders(order_date_added)
+    `);
+
+    console.log('✅ 資料庫初始化完成');
   }
 
   // 啟動監控
   async start() {
-    // 等待資料庫初始化完成
-    await this.dbReady;
-
     console.log('=== 訂單列印系統啟動 ===');
     console.log('API URL:', this.config.apiUrl);
     console.log('檢查間隔:', this.config.checkInterval / 1000, '秒');
@@ -285,18 +268,14 @@ class OrderPrintManager extends EventEmitter {
 
   // 取得已列印的訂單 ID
   async getPrintedOrderIds(orderIds) {
-    return new Promise((resolve, reject) => {
-      const placeholders = orderIds.map(() => '?').join(',');
-      this.db.all(
-        `SELECT order_id FROM printed_orders
-         WHERE order_id IN (${placeholders})`,
-        orderIds,
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows.map(r => r.order_id));
-        }
-      );
-    });
+    // better-sqlite3 使用同步 API
+    const placeholders = orderIds.map(() => '?').join(',');
+    const stmt = this.db.prepare(
+      `SELECT order_id FROM printed_orders
+       WHERE order_id IN (${placeholders})`
+    );
+    const rows = stmt.all(...orderIds);
+    return rows.map(r => r.order_id);
   }
 
   // 呼叫 API 取得訂單
@@ -340,19 +319,13 @@ class OrderPrintManager extends EventEmitter {
     if (orders.length === 0) return [];
 
     const orderIds = orders.map(o => o.order_id);
-
-    const printedIds = await new Promise((resolve, reject) => {
-      const placeholders = orderIds.map(() => '?').join(',');
-      this.db.all(
-        `SELECT order_id FROM printed_orders
-         WHERE order_id IN (${placeholders})`,
-        orderIds,
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows.map(r => r.order_id));
-        }
-      );
-    });
+    const placeholders = orderIds.map(() => '?').join(',');
+    const stmt = this.db.prepare(
+      `SELECT order_id FROM printed_orders
+       WHERE order_id IN (${placeholders})`
+    );
+    const rows = stmt.all(...orderIds);
+    const printedIds = rows.map(r => r.order_id);
 
     return orders.filter(order => !printedIds.includes(order.order_id));
   }
@@ -640,29 +613,24 @@ class OrderPrintManager extends EventEmitter {
 
   // 標記為已列印
   markAsPrinted(order, status = 'success') {
-    return new Promise((resolve, reject) => {
-      const now = Math.floor(Date.now() / 1000);
+    const now = Math.floor(Date.now() / 1000);
 
-      this.db.run(
-        `INSERT OR REPLACE INTO printed_orders
-         (order_id, printed_at, order_date_added, ship_date, customer_name, customer_phone, total_price, print_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          order.order_id,
-          now,
-          order.date_added,
-          order.ship_date,
-          order.customer_name || '',
-          order.customer_phone || '',
-          order.total_price || 0,
-          status
-        ],
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
-    });
+    const stmt = this.db.prepare(
+      `INSERT OR REPLACE INTO printed_orders
+       (order_id, printed_at, order_date_added, ship_date, customer_name, customer_phone, total_price, print_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+
+    stmt.run(
+      order.order_id,
+      now,
+      order.date_added,
+      order.ship_date,
+      order.customer_name || '',
+      order.customer_phone || '',
+      order.total_price || 0,
+      status
+    );
   }
 
   // 重新列印訂單
@@ -684,42 +652,32 @@ class OrderPrintManager extends EventEmitter {
 
   // 取得統計資料
   async getStats() {
-    return new Promise((resolve, reject) => {
-      const today = this.getStartOfDay();
+    const today = this.getStartOfDay();
 
-      this.db.get(
-        `SELECT
-          COUNT(*) as total,
-          SUM(CASE WHEN print_status = 'success' THEN 1 ELSE 0 END) as success,
-          SUM(CASE WHEN print_status = 'failed' THEN 1 ELSE 0 END) as failed,
-          SUM(CASE WHEN printed_at >= ? THEN 1 ELSE 0 END) as today
-         FROM printed_orders`,
-        [today],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
+    const stmt = this.db.prepare(
+      `SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN print_status = 'success' THEN 1 ELSE 0 END) as success,
+        SUM(CASE WHEN print_status = 'failed' THEN 1 ELSE 0 END) as failed,
+        SUM(CASE WHEN printed_at >= ? THEN 1 ELSE 0 END) as today
+       FROM printed_orders`
+    );
+
+    return stmt.get(today);
   }
 
   // 取得列印歷史
   async getPrintHistory(options = {}) {
-    return new Promise((resolve, reject) => {
-      const limit = options.limit || 50;
-      const offset = options.offset || 0;
+    const limit = options.limit || 50;
+    const offset = options.offset || 0;
 
-      this.db.all(
-        `SELECT * FROM printed_orders
-         ORDER BY printed_at DESC
-         LIMIT ? OFFSET ?`,
-        [limit, offset],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
-      );
-    });
+    const stmt = this.db.prepare(
+      `SELECT * FROM printed_orders
+       ORDER BY printed_at DESC
+       LIMIT ? OFFSET ?`
+    );
+
+    return stmt.all(limit, offset);
   }
 
   // 工具函數

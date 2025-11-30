@@ -14,7 +14,7 @@
   "author": "Vegetable University",
   "license": "MIT",
   "dependencies": {
-    "sqlite3": "^5.1.6",
+    "better-sqlite3": "^11.8.0",
     "node-fetch": "^2.7.0"
   },
   "devDependencies": {
@@ -33,7 +33,7 @@
       "!dist"
     ],
     "asarUnpack": [
-      "node_modules/sqlite3/**/*"
+      "node_modules/better-sqlite3/**/*"
     ],
     "win": {
       "target": "nsis",
