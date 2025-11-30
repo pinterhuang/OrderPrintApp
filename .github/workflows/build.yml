@@ -34,8 +34,21 @@ jobs:
         env:
           DEBUG: electron-builder
 
+      - name: Check build output
+        if: always()
+        run: |
+          if [ -f dist/*.exe ]; then
+            echo "Build successful - exe file found"
+            ls -lh dist/*.exe
+          else
+            echo "Build may have failed - no exe file found"
+          fi
+        shell: bash
+
       - name: Upload artifacts (Windows)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: dist/*.exe
+          if-no-files-found: warn
