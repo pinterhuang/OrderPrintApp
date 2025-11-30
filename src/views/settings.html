@@ -231,6 +231,30 @@
 
         <hr class="divider">
 
+        <div class="section-title">列印設定</div>
+
+        <div class="form-group">
+          <label class="form-label" for="printerName">出單機名稱</label>
+          <select id="printerName" class="form-input">
+            <option value="">正在載入印表機清單...</option>
+          </select>
+          <div class="form-hint">選擇要使用的出單機</div>
+        </div>
+
+        <div class="form-group">
+          <button type="button" class="btn btn-secondary" id="refreshPrintersBtn" style="width: 100%;">
+            🔄 重新整理印表機清單
+          </button>
+        </div>
+
+        <div class="form-group">
+          <button type="button" class="btn btn-secondary" id="testPrintBtn" style="width: 100%;">
+            🖨️ 測試列印
+          </button>
+        </div>
+
+        <hr class="divider">
+
         <div class="section-title">通知設定</div>
 
         <div class="form-group">
@@ -276,12 +300,40 @@
     const checkInterval = document.getElementById('checkInterval');
     const recentMinutes = document.getElementById('recentMinutes');
     const printDelay = document.getElementById('printDelay');
+    const printerName = document.getElementById('printerName');
+    const refreshPrintersBtn = document.getElementById('refreshPrintersBtn');
+    const testPrintBtn = document.getElementById('testPrintBtn');
     const enableSound = document.getElementById('enableSound');
     const enableNotification = document.getElementById('enableNotification');
     const autoStart = document.getElementById('autoStart');
 
     // 載入設定
     document.addEventListener('DOMContentLoaded', () => {
+      ipcRenderer.send('get-settings');
+      loadPrinters();
+    });
+
+    // 載入印表機清單
+    function loadPrinters() {
+      ipcRenderer.send('get-printers');
+    }
+
+    ipcRenderer.on('printers-list', (event, printers) => {
+      printerName.innerHTML = '';
+
+      if (printers.length === 0) {
+        printerName.innerHTML = '<option value="">找不到印表機</option>';
+        return;
+      }
+
+      printers.forEach(printer => {
+        const option = document.createElement('option');
+        option.value = printer.name;
+        option.textContent = printer.displayName;
+        printerName.appendChild(option);
+      });
+
+      // 載入已儲存的印表機設定
       ipcRenderer.send('get-settings');
     });
 
@@ -292,9 +344,37 @@
       checkInterval.value = settings.checkInterval / 1000 || 30;
       recentMinutes.value = settings.recentMinutes || 2;
       printDelay.value = settings.printDelay || 1000;
+
+      // 設定印表機
+      if (settings.printerName) {
+        printerName.value = settings.printerName;
+      }
+
       enableSound.checked = settings.enableSound !== false;
       enableNotification.checked = settings.enableNotification !== false;
       autoStart.checked = settings.autoStart !== false;
+    });
+
+    // 重新整理印表機清單
+    refreshPrintersBtn.addEventListener('click', () => {
+      loadPrinters();
+    });
+
+    // 測試列印
+    testPrintBtn.addEventListener('click', () => {
+      if (!printerName.value) {
+        alert('請先選擇印表機');
+        return;
+      }
+      ipcRenderer.send('test-print', printerName.value);
+    });
+
+    ipcRenderer.on('test-print-result', (event, result) => {
+      if (result.success) {
+        alert('測試列印成功！請檢查出單機。');
+      } else {
+        alert('測試列印失敗：' + result.error);
+      }
     });
 
     // 儲存設定
@@ -335,6 +415,7 @@
           checkInterval: parseInt(checkInterval.value) * 1000,
           recentMinutes: parseInt(recentMinutes.value),
           printDelay: parseInt(printDelay.value),
+          printerName: printerName.value,
           enableSound: enableSound.checked,
           enableNotification: enableNotification.checked,
           autoStart: autoStart.checked

@@ -422,14 +422,21 @@ class OrderPrintManager extends EventEmitter {
 
       printWindow.webContents.on('did-finish-load', () => {
         setTimeout(() => {
+          const printOptions = {
+            silent: true,
+            printBackground: true,
+            margins: {
+              marginType: 'printableArea'
+            }
+          };
+
+          // 如果有設定印表機名稱，使用指定印表機
+          if (this.config.printerName) {
+            printOptions.deviceName = this.config.printerName;
+          }
+
           printWindow.webContents.print(
-            {
-              silent: true,
-              printBackground: true,
-              margins: {
-                marginType: 'printableArea'
-              }
-            },
+            printOptions,
             (success, errorType) => {
               if (!success) {
                 console.error('列印失敗:', errorType);
@@ -451,10 +458,11 @@ class OrderPrintManager extends EventEmitter {
     });
   }
 
-  // 生成發票 HTML - 參照後台 last_orders.php
+  // 生成發票 HTML - 完全參照後台 last_orders.php 格式
   generateInvoiceHTML(orderDetails) {
     const customer = orderDetails.customer || {};
     const products = orderDetails.products || [];
+    const payment = orderDetails.payment || {};
 
     return `
       <!DOCTYPE html>
@@ -470,103 +478,104 @@ class OrderPrintManager extends EventEmitter {
           body {
             font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif;
             padding: 20px;
-            font-size: 14px;
-            line-height: 1.6;
+            font-size: 13px;
+            line-height: 1.4;
+            color: #6c757d;
           }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #333;
-          }
-          .header h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-          }
-          .ship-date {
-            font-size: 16px;
-            color: #666;
-            margin-top: 10px;
-          }
-          .info-section {
+          .customer-section {
             margin-bottom: 20px;
           }
-          .info-row {
-            margin-bottom: 5px;
+          .customer-section p {
+            margin: 0;
+            padding: 2px 0;
           }
-          .info-label {
+          .customer-section p b {
+            font-size: 14px;
+          }
+          h6 {
+            font-size: 14px;
+            margin: 15px 0 10px 0;
             font-weight: bold;
-            display: inline-block;
-            width: 100px;
+            color: #333;
           }
           .order-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 20px 0;
+            margin: 10px 0 20px 0;
+            font-size: 12px;
           }
-          .order-table th,
-          .order-table td {
-            border: 1px solid #333;
-            padding: 8px;
-            text-align: left;
-          }
-          .order-table th {
+          .order-table thead th {
             background-color: #6c757d;
             color: white;
-            font-weight: bold;
+            padding: 6px 8px;
+            text-align: left;
+            border: 1px solid #5a6268;
           }
-          .order-table td.right {
-            text-align: right;
-          }
-          .total-row {
+          .order-table tbody tr {
             background-color: #f8f9fa;
           }
-          .grand-total-row {
+          .order-table tbody td {
+            padding: 6px 8px;
+            border: 1px solid #dee2e6;
+          }
+          .order-table .border-top {
+            border-top: 2px solid #333 !important;
+          }
+          .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 12px;
+          }
+          .payment-table thead th {
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+          }
+          .payment-table tbody td {
+            padding: 6px 8px;
+          }
+          .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
             font-weight: bold;
-            border-top: 2px solid #333;
+          }
+          .badge-success {
+            background-color: #28a745;
+            color: white;
+          }
+          .badge-danger {
+            background-color: #dc3545;
+            color: white;
           }
           @media print {
             body {
-              padding: 0;
+              padding: 10px;
             }
           }
         </style>
       </head>
       <body>
-        <div class="header">
-          <h1>蔬果大學</h1>
-          <h2>訂單摘要</h2>
-          <div class="ship-date">出貨日期：${this.formatDate(orderDetails.ship_date)}</div>
+        <div class="customer-section">
+          <p><b>客戶</b></p>
+          <p>姓名 : ${customer.name || '未知'}</p>
+          <p>電話 : ${customer.phone || ''}</p>
+          <p>Email : ${customer.email || ''}</p>
+          <p>地址 : ${customer.address || ''}</p>
         </div>
 
-        <div class="info-section">
-          <div class="info-row">
-            <span class="info-label">訂單編號：</span>
-            <span>#${orderDetails.order_id}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">客戶姓名：</span>
-            <span>${customer.name || '未知'}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">聯絡電話：</span>
-            <span>${customer.phone || ''}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">送貨地址：</span>
-            <span>${customer.address || ''}</span>
-          </div>
-        </div>
-
+        <h6>訂單摘要 :</h6>
         <table class="order-table">
           <thead>
             <tr>
-              <th style="width: 40px;">#</th>
+              <th>#</th>
               <th>品名</th>
-              <th style="width: 80px;">數量</th>
-              <th style="width: 100px;">單位</th>
-              <th style="width: 100px;">總單位</th>
-              <th style="width: 100px;">單價</th>
+              <th>數量</th>
+              <th>單位</th>
+              <th>總單位</th>
+              <th>價格</th>
             </tr>
           </thead>
           <tbody>
@@ -577,32 +586,59 @@ class OrderPrintManager extends EventEmitter {
                 <td>${product.quantity || 0}</td>
                 <td>${product.unit_number || ''} ${product.unit || ''}</td>
                 <td>${product.total_unit || ''}</td>
-                <td class="right">${product.total_price || 0}</td>
+                <td>${product.total_price || 0}</td>
               </tr>
             `).join('')}
-            <tr class="total-row">
+            <tr class="border-top">
               <td></td>
               <td></td>
               <td></td>
               <td></td>
               <td>小計</td>
-              <td class="right">${orderDetails.sub_total || 0}</td>
+              <td>${orderDetails.sub_total || 0}</td>
             </tr>
-            <tr class="total-row">
+            <tr>
               <td></td>
               <td></td>
               <td></td>
               <td></td>
               <td>運費</td>
-              <td class="right">${orderDetails.delivery_charge > 0 ? orderDetails.delivery_charge : '免費'}</td>
+              <td>${orderDetails.delivery_charge > 0 ? orderDetails.delivery_charge : '免費'}</td>
             </tr>
-            <tr class="grand-total-row">
+            <tr>
               <td></td>
               <td></td>
               <td></td>
               <td></td>
-              <td>總計</td>
-              <td class="right">${orderDetails.grand_total || 0}</td>
+              <td class="border-top">總計</td>
+              <td class="border-top">${orderDetails.grand_total || 0}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h6>付款報告 :</h6>
+        <table class="payment-table">
+          <thead>
+            <tr>
+              <th>付款方式</th>
+              <th>付款狀態</th>
+              <th>金額</th>
+              <th>日期</th>
+              <th>寄送日期</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${payment.payment_type || 'cash_on_delivery'}</td>
+              <td>
+                ${payment.status === 'paid'
+                  ? '<span class="badge badge-success">已付款</span>'
+                  : '<span class="badge badge-danger">未付款</span>'
+                }
+              </td>
+              <td class="border-top">${payment.total_price || orderDetails.grand_total || 0}</td>
+              <td class="border-top">${this.formatDate(payment.date_added || orderDetails.date_added)}</td>
+              <td class="border-top">${this.formatDate(orderDetails.ship_date)}</td>
             </tr>
           </tbody>
         </table>

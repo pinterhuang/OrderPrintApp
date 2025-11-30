@@ -15,7 +15,8 @@ class SettingsManager {
       enableSound: true,
       enableNotification: true,
       printDelay: 1000,
-      autoStart: true
+      autoStart: true,
+      printerName: ''
     };
 
     this.loadSettings();

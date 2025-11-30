@@ -302,6 +302,63 @@ ipcMain.on('reprint-order', async (event, orderId) => {
   }
 });
 
+ipcMain.on('get-printers', (event) => {
+  const printers = mainWindow.webContents.getPrinters();
+  event.reply('printers-list', printers);
+});
+
+ipcMain.on('test-print', async (event, printerName) => {
+  try {
+    const testWindow = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false
+      }
+    });
+
+    const testHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body {
+            font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif;
+            padding: 20px;
+          }
+          h1 { font-size: 24px; margin-bottom: 10px; }
+          p { font-size: 14px; margin: 5px 0; }
+        </style>
+      </head>
+      <body>
+        <h1>測試列印</h1>
+        <p>印表機：${printerName}</p>
+        <p>時間：${new Date().toLocaleString()}</p>
+        <p>狀態：✓ 列印測試成功</p>
+      </body>
+      </html>
+    `;
+
+    await testWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(testHTML));
+
+    testWindow.webContents.print({
+      silent: true,
+      printBackground: true,
+      deviceName: printerName
+    }, (success, errorType) => {
+      testWindow.close();
+      if (success) {
+        event.reply('test-print-result', { success: true });
+      } else {
+        event.reply('test-print-result', { success: false, error: errorType });
+      }
+    });
+  } catch (error) {
+    event.reply('test-print-result', { success: false, error: error.message });
+  }
+});
+
 // 處理未捕獲的錯誤
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
