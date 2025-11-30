@@ -426,8 +426,17 @@ class OrderPrintManager extends EventEmitter {
             silent: true,
             printBackground: true,
             margins: {
-              marginType: 'printableArea'
-            }
+              marginType: 'custom',
+              top: 0,
+              bottom: 0,
+              left: 0,
+              right: 0
+            },
+            pageSize: {
+              width: 80000, // 80mm in microns
+              height: 297000 // A4 height in microns (will auto-adjust)
+            },
+            scaleFactor: 100
           };
 
           // 如果有設定印表機名稱，使用指定印表機
@@ -470,6 +479,10 @@ class OrderPrintManager extends EventEmitter {
       <head>
         <meta charset="UTF-8">
         <style>
+          @page {
+            size: 80mm auto;
+            margin: 5mm;
+          }
           * {
             margin: 0;
             padding: 0;
@@ -477,46 +490,51 @@ class OrderPrintManager extends EventEmitter {
           }
           body {
             font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif;
-            padding: 20px;
-            font-size: 13px;
-            line-height: 1.4;
-            color: #6c757d;
+            width: 80mm;
+            max-width: 80mm;
+            padding: 5mm;
+            font-size: 18px;
+            line-height: 1.5;
+            color: #000;
           }
           .customer-section {
             margin-bottom: 20px;
           }
           .customer-section p {
             margin: 0;
-            padding: 2px 0;
+            padding: 4px 0;
+            font-size: 18px;
           }
           .customer-section p b {
-            font-size: 14px;
+            font-size: 20px;
           }
           h6 {
-            font-size: 14px;
+            font-size: 20px;
             margin: 15px 0 10px 0;
             font-weight: bold;
-            color: #333;
+            color: #000;
           }
           .order-table {
             width: 100%;
             border-collapse: collapse;
             margin: 10px 0 20px 0;
-            font-size: 12px;
+            font-size: 16px;
           }
           .order-table thead th {
-            background-color: #6c757d;
+            background-color: #333;
             color: white;
-            padding: 6px 8px;
+            padding: 10px 12px;
             text-align: left;
-            border: 1px solid #5a6268;
+            border: 1px solid #000;
+            font-size: 18px;
           }
           .order-table tbody tr {
-            background-color: #f8f9fa;
+            background-color: #fff;
           }
           .order-table tbody td {
-            padding: 6px 8px;
-            border: 1px solid #dee2e6;
+            padding: 10px 12px;
+            border: 1px solid #000;
+            font-size: 16px;
           }
           .order-table .border-top {
             border-top: 2px solid #333 !important;
@@ -525,21 +543,23 @@ class OrderPrintManager extends EventEmitter {
             width: 100%;
             border-collapse: collapse;
             margin: 10px 0;
-            font-size: 12px;
+            font-size: 18px;
           }
           .payment-table thead th {
-            padding: 6px 8px;
+            padding: 10px 12px;
             text-align: left;
-            border-bottom: 1px solid #dee2e6;
+            border-bottom: 2px solid #000;
+            font-size: 18px;
           }
           .payment-table tbody td {
-            padding: 6px 8px;
+            padding: 10px 12px;
+            font-size: 18px;
           }
           .badge {
             display: inline-block;
-            padding: 3px 8px;
+            padding: 6px 12px;
             border-radius: 3px;
-            font-size: 11px;
+            font-size: 16px;
             font-weight: bold;
           }
           .badge-success {
