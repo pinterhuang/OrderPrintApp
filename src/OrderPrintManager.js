@@ -23,7 +23,7 @@ class OrderPrintManager extends EventEmitter {
     const dbPath = path.join(require('electron').app.getPath('userData'), 'printed_orders.db');
     this.db = new sqlite3.Database(dbPath);
 
-    this.initDB();
+    this.dbReady = this.initDB();  // 等待資料庫初始化
     this.isFirstRun = true;
     this.isSyncing = false;
     this.syncInterval = null;
@@ -31,33 +31,53 @@ class OrderPrintManager extends EventEmitter {
     this.currentOrders = [];  // 當前訂單列表
   }
 
-  initDB() {
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS printed_orders (
-        order_id INTEGER PRIMARY KEY,
-        printed_at INTEGER NOT NULL,
-        order_date_added INTEGER NOT NULL,
-        ship_date INTEGER,
-        customer_name TEXT,
-        customer_phone TEXT,
-        total_price REAL,
-        print_status TEXT DEFAULT 'success'
-      )
-    `);
+  async initDB() {
+    return new Promise((resolve, reject) => {
+      this.db.serialize(() => {
+        this.db.run(`
+          CREATE TABLE IF NOT EXISTS printed_orders (
+            order_id INTEGER PRIMARY KEY,
+            printed_at INTEGER NOT NULL,
+            order_date_added INTEGER NOT NULL,
+            ship_date INTEGER,
+            customer_name TEXT,
+            customer_phone TEXT,
+            total_price REAL,
+            print_status TEXT DEFAULT 'success'
+          )
+        `, (err) => {
+          if (err) {
+            console.error('建立資料表失敗:', err);
+            reject(err);
+          }
+        });
 
-    this.db.run(`
-      CREATE INDEX IF NOT EXISTS idx_printed_at
-      ON printed_orders(printed_at)
-    `);
+        this.db.run(`
+          CREATE INDEX IF NOT EXISTS idx_printed_at
+          ON printed_orders(printed_at)
+        `);
 
-    this.db.run(`
-      CREATE INDEX IF NOT EXISTS idx_order_date
-      ON printed_orders(order_date_added)
-    `);
+        this.db.run(`
+          CREATE INDEX IF NOT EXISTS idx_order_date
+          ON printed_orders(order_date_added)
+        `, (err) => {
+          if (err) {
+            console.error('建立索引失敗:', err);
+            reject(err);
+          } else {
+            console.log('✅ 資料庫初始化完成');
+            resolve();
+          }
+        });
+      });
+    });
   }
 
   // 啟動監控
   async start() {
+    // 等待資料庫初始化完成
+    await this.dbReady;
+
     console.log('=== 訂單列印系統啟動 ===');
     console.log('API URL:', this.config.apiUrl);
     console.log('檢查間隔:', this.config.checkInterval / 1000, '秒');
@@ -68,8 +88,8 @@ class OrderPrintManager extends EventEmitter {
       message: '系統啟動中...'
     });
 
-    // 首次啟動：取得當天所有訂單（只顯示，不列印）
-    await this.loadTodayOrders();
+    // 首次啟動：取得所有未確認訂單（只顯示，不列印）
+    await this.loadPendingOrders();
 
     // 開始定期同步訂單
     this.startSyncOrders();
@@ -136,28 +156,26 @@ class OrderPrintManager extends EventEmitter {
     console.log('🔄 訂單同步已啟動');
   }
 
-  // 載入當天所有訂單（首次啟動）
-  async loadTodayOrders() {
-    console.log('\n[首次啟動] 載入當天所有訂單...');
-
-    const todayStart = this.getStartOfDay();
-    const now = Math.floor(Date.now() / 1000);
+  // 載入所有未確認訂單（首次啟動）- 參照後台 get_last_orders
+  async loadPendingOrders() {
+    console.log('\n[首次啟動] 載入所有未確認訂單（pending）...');
 
     try {
+      // 取得所有 pending 狀態的訂單，date_from = 0 表示不限時間
+      // 這會載入所有尚未處理的訂單，和後台 get_last_orders(0) 一樣
       const orders = await this.fetchOrders({
         status: 'pending',
-        date_from: todayStart,
-        date_to: now
+        date_from: 0
       });
 
-      console.log(`找到 ${orders.length} 筆當天訂單`);
+      console.log(`找到 ${orders.length} 筆未確認訂單`);
 
       // 標記列印狀態
       const ordersWithStatus = await this.markOrdersPrintStatus(orders);
       this.currentOrders = ordersWithStatus;
 
       // 發送到前端顯示
-      this.emit('todayOrdersLoaded', ordersWithStatus);
+      this.emit('pendingOrdersLoaded', ordersWithStatus);
 
       const unprintedCount = ordersWithStatus.filter(o => !o.isPrinted).length;
       console.log(`其中 ${unprintedCount} 筆未列印`);
@@ -165,7 +183,7 @@ class OrderPrintManager extends EventEmitter {
       this.isFirstRun = false;
 
     } catch (error) {
-      console.error('載入當天訂單失敗:', error);
+      console.error('載入未確認訂單失敗:', error);
       this.emit('statusUpdate', {
         status: 'error',
         message: '載入訂單失敗: ' + error.message
@@ -283,9 +301,11 @@ class OrderPrintManager extends EventEmitter {
 
   // 呼叫 API 取得訂單
   async fetchOrders({ status, date_from, date_to }) {
-    const url = `${this.config.apiUrl}/order_histories`;
+    const url = `${this.config.apiUrl}/admin_order_histories`;
     const params = new URLSearchParams({
       status: status,
+      date_from: date_from,
+      date_to: date_to,
       auth_token: this.config.authToken
     });
 
@@ -301,21 +321,15 @@ class OrderPrintManager extends EventEmitter {
       throw new Error(data.message || 'API 錯誤');
     }
 
-    let orders = data.order_list || [];
+    let orders = data.orders || [];
 
-    // 前端過濾時間範圍
-    orders = orders.filter(order => {
-      const orderTime = order.date_added;
-      return orderTime >= date_from && orderTime <= date_to;
-    });
-
-    // 補充客戶資訊（如果 API 沒有提供）
-    // 注意：根據實際 API 回應調整
+    // 格式化訂單資料
     orders = orders.map(order => ({
       ...order,
-      customer_name: order.customer_name || order.name || '未知客戶',
-      customer_phone: order.customer_phone || order.phone || '',
-      total_price: parseFloat(order.total_price || 0)
+      customer_name: order.customer_name || '未知客戶',
+      customer_phone: order.customer_phone || '',
+      total_price: parseFloat(order.order_total || order.total_price || 0),
+      date_added: parseInt(order.order_placed_timestamp || order.date_added || 0)
     }));
 
     return orders;
@@ -402,7 +416,7 @@ class OrderPrintManager extends EventEmitter {
 
   // 取得訂單詳細資料
   async fetchOrderDetails(orderId) {
-    const url = `${this.config.apiUrl}/order_history_details`;
+    const url = `${this.config.apiUrl}/admin_order_details`;
     const params = new URLSearchParams({
       order_id: orderId,
       auth_token: this.config.authToken
@@ -415,7 +429,7 @@ class OrderPrintManager extends EventEmitter {
       throw new Error(data.message || 'API 錯誤');
     }
 
-    return data.order_details || data;
+    return data.order || data.order_details || data;
   }
 
   // 自動列印（靜默列印）
@@ -464,10 +478,10 @@ class OrderPrintManager extends EventEmitter {
     });
   }
 
-  // 生成發票 HTML
+  // 生成發票 HTML - 參照後台 last_orders.php
   generateInvoiceHTML(orderDetails) {
     const customer = orderDetails.customer || {};
-    const items = orderDetails.items || orderDetails.order_items || [];
+    const products = orderDetails.products || [];
 
     return `
       <!DOCTYPE html>
@@ -505,11 +519,11 @@ class OrderPrintManager extends EventEmitter {
             margin-bottom: 20px;
           }
           .info-row {
-            display: flex;
             margin-bottom: 5px;
           }
           .info-label {
             font-weight: bold;
+            display: inline-block;
             width: 100px;
           }
           .order-table {
@@ -524,22 +538,19 @@ class OrderPrintManager extends EventEmitter {
             text-align: left;
           }
           .order-table th {
-            background-color: #f2f2f2;
+            background-color: #6c757d;
+            color: white;
             font-weight: bold;
           }
           .order-table td.right {
             text-align: right;
           }
           .total-row {
-            font-weight: bold;
-            background-color: #f9f9f9;
+            background-color: #f8f9fa;
           }
-          .footer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-            font-size: 12px;
-            color: #666;
+          .grand-total-row {
+            font-weight: bold;
+            border-top: 2px solid #333;
           }
           @media print {
             body {
@@ -551,65 +562,77 @@ class OrderPrintManager extends EventEmitter {
       <body>
         <div class="header">
           <h1>蔬果大學</h1>
-          <h2>訂單發票</h2>
-          <div class="ship-date">出貨時間：${this.formatDate(orderDetails.ship_date)}</div>
+          <h2>訂單摘要</h2>
+          <div class="ship-date">出貨日期：${this.formatDate(orderDetails.ship_date)}</div>
         </div>
 
         <div class="info-section">
           <div class="info-row">
-            <div class="info-label">訂單編號：</div>
-            <div>#${orderDetails.order_id}</div>
+            <span class="info-label">訂單編號：</span>
+            <span>#${orderDetails.order_id}</span>
           </div>
           <div class="info-row">
-            <div class="info-label">客戶姓名：</div>
-            <div>${customer.name || '未知'}</div>
+            <span class="info-label">客戶姓名：</span>
+            <span>${customer.name || '未知'}</span>
           </div>
           <div class="info-row">
-            <div class="info-label">聯絡電話：</div>
-            <div>${customer.phone || ''}</div>
+            <span class="info-label">聯絡電話：</span>
+            <span>${customer.phone || ''}</span>
           </div>
           <div class="info-row">
-            <div class="info-label">送貨地址：</div>
-            <div>${customer.address || ''}</div>
+            <span class="info-label">送貨地址：</span>
+            <span>${customer.address || ''}</span>
           </div>
         </div>
 
         <table class="order-table">
           <thead>
             <tr>
-              <th>商品名稱</th>
-              <th style="width: 150px;">數量</th>
+              <th style="width: 40px;">#</th>
+              <th>品名</th>
+              <th style="width: 80px;">數量</th>
+              <th style="width: 100px;">單位</th>
+              <th style="width: 100px;">總單位</th>
               <th style="width: 100px;">單價</th>
-              <th style="width: 100px;">小計</th>
             </tr>
           </thead>
           <tbody>
-            ${items.map(item => {
-              const unitText = item.unit ? `${item.unit_number || ''}${item.unit}` : '';
-              const quantity = item.quantity || item.quantityInt || 1;
-              const price = item.price || item.discountPrice || 0;
-              const total = item.total || item.totalPrice || (price * quantity);
-
-              return `
-                <tr>
-                  <td>${item.product_name || item.productName || ''}</td>
-                  <td>${quantity} ${unitText ? `(${unitText})` : ''}</td>
-                  <td class="right">NT$${price}</td>
-                  <td class="right">NT$${total}</td>
-                </tr>
-              `;
-            }).join('')}
+            ${products.map((product, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${product.name || ''}</td>
+                <td>${product.quantity || 0}</td>
+                <td>${product.unit_number || ''} ${product.unit || ''}</td>
+                <td>${product.total_unit || ''}</td>
+                <td class="right">${product.total_price || 0}</td>
+              </tr>
+            `).join('')}
             <tr class="total-row">
-              <td colspan="3" class="right">總計</td>
-              <td class="right">NT$${orderDetails.grand_total || orderDetails.finalTotalPrice || orderDetails.total_price || 0}</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>小計</td>
+              <td class="right">${orderDetails.sub_total || 0}</td>
+            </tr>
+            <tr class="total-row">
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>運費</td>
+              <td class="right">${orderDetails.delivery_charge > 0 ? orderDetails.delivery_charge : '免費'}</td>
+            </tr>
+            <tr class="grand-total-row">
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>總計</td>
+              <td class="right">${orderDetails.grand_total || 0}</td>
             </tr>
           </tbody>
         </table>
-
-        <div class="footer">
-          <div>蔬果大學</div>
-          <div>感謝您的訂購！</div>
-        </div>
       </body>
       </html>
     `;

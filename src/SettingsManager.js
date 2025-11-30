@@ -7,6 +7,8 @@ class SettingsManager {
     this.settingsPath = path.join(app.getPath('userData'), 'settings.json');
     this.defaultSettings = {
       apiUrl: 'http://vegetable-university.com/store/api_frontend',
+      email: '',
+      password: '',
       authToken: '',
       checkInterval: 30000,
       recentMinutes: 2,

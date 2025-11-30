@@ -179,9 +179,9 @@ app.whenReady().then(() => {
       manager.start();
 
       // 監聽事件
-      manager.on('todayOrdersLoaded', (orders) => {
+      manager.on('pendingOrdersLoaded', (orders) => {
         if (mainWindow) {
-          mainWindow.webContents.send('today-orders-loaded', orders);
+          mainWindow.webContents.send('pending-orders-loaded', orders);
         }
       });
 
@@ -269,9 +269,14 @@ ipcMain.on('get-print-history', (event, options) => {
   }
 });
 
-ipcMain.on('manual-check', () => {
+ipcMain.on('manual-check', async () => {
   if (manager) {
-    manager.checkRecentOrders();
+    try {
+      await manager.syncRecentOrders();
+      console.log('✅ 手動同步完成');
+    } catch (error) {
+      console.error('❌ 手動同步失敗:', error);
+    }
   }
 });
 

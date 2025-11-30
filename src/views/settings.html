@@ -162,15 +162,27 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="authToken">管理員 Token</label>
+          <label class="form-label" for="email">管理員 Email</label>
           <input
-            type="password"
-            id="authToken"
+            type="email"
+            id="email"
             class="form-input"
-            placeholder="請輸入管理員 Token"
+            placeholder="請輸入管理員 Email"
             required
           >
-          <div class="form-hint">用於存取訂單 API 的認證 Token</div>
+          <div class="form-hint">用於登入的管理員 Email</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">管理員密碼</label>
+          <input
+            type="password"
+            id="password"
+            class="form-input"
+            placeholder="請輸入管理員密碼"
+            required
+          >
+          <div class="form-hint">用於登入的管理員密碼</div>
         </div>
 
         <hr class="divider">
@@ -259,7 +271,8 @@
     const cancelBtn = document.getElementById('cancelBtn');
 
     const apiUrl = document.getElementById('apiUrl');
-    const authToken = document.getElementById('authToken');
+    const email = document.getElementById('email');
+    const password = document.getElementById('password');
     const checkInterval = document.getElementById('checkInterval');
     const recentMinutes = document.getElementById('recentMinutes');
     const printDelay = document.getElementById('printDelay');
@@ -274,7 +287,8 @@
 
     ipcRenderer.on('settings-data', (event, settings) => {
       apiUrl.value = settings.apiUrl || '';
-      authToken.value = settings.authToken || '';
+      email.value = settings.email || '';
+      password.value = settings.password || '';
       checkInterval.value = settings.checkInterval / 1000 || 30;
       recentMinutes.value = settings.recentMinutes || 2;
       printDelay.value = settings.printDelay || 1000;
@@ -284,24 +298,54 @@
     });
 
     // 儲存設定
-    saveBtn.addEventListener('click', () => {
+    saveBtn.addEventListener('click', async () => {
       if (!form.checkValidity()) {
         alert('請填寫所有必填欄位');
         return;
       }
 
-      const settings = {
-        apiUrl: apiUrl.value.trim(),
-        authToken: authToken.value.trim(),
-        checkInterval: parseInt(checkInterval.value) * 1000,
-        recentMinutes: parseInt(recentMinutes.value),
-        printDelay: parseInt(printDelay.value),
-        enableSound: enableSound.checked,
-        enableNotification: enableNotification.checked,
-        autoStart: autoStart.checked
-      };
+      // 先測試登入以取得 authToken
+      saveBtn.disabled = true;
+      saveBtn.textContent = '登入中...';
 
-      ipcRenderer.send('save-settings', settings);
+      try {
+        const formData = new URLSearchParams();
+        formData.append('email', email.value.trim());
+        formData.append('password', password.value.trim());
+
+        const loginResponse = await fetch(`${apiUrl.value.trim()}/admin_login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData.toString()
+        });
+
+        const loginData = await loginResponse.json();
+
+        if (!loginData.success || !loginData.auth_token) {
+          throw new Error(loginData.message || '登入失敗');
+        }
+
+        const settings = {
+          apiUrl: apiUrl.value.trim(),
+          email: email.value.trim(),
+          password: password.value.trim(),
+          authToken: loginData.auth_token,
+          checkInterval: parseInt(checkInterval.value) * 1000,
+          recentMinutes: parseInt(recentMinutes.value),
+          printDelay: parseInt(printDelay.value),
+          enableSound: enableSound.checked,
+          enableNotification: enableNotification.checked,
+          autoStart: autoStart.checked
+        };
+
+        ipcRenderer.send('save-settings', settings);
+      } catch (error) {
+        alert('登入失敗：' + error.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = '儲存設定';
+      }
     });
 
     ipcRenderer.on('settings-saved', (event, result) => {

@@ -30,8 +30,10 @@
     "files": [
       "**/*",
       "!**/*.md",
-      "!dist",
-      "!node_modules"
+      "!dist"
+    ],
+    "asarUnpack": [
+      "node_modules/sqlite3/**/*"
     ],
     "win": {
       "target": "nsis",

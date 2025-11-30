@@ -66,8 +66,8 @@ function setupEventListeners() {
     updateStatus(status);
   });
 
-  ipcRenderer.on('today-orders-loaded', (event, orders) => {
-    handleTodayOrdersLoaded(orders);
+  ipcRenderer.on('pending-orders-loaded', (event, orders) => {
+    handlePendingOrdersLoaded(orders);
   });
 
   ipcRenderer.on('new-orders-found', (event, orders) => {
@@ -153,9 +153,9 @@ function updateStatus(status) {
   }
 }
 
-// 處理當天訂單載入
-function handleTodayOrdersLoaded(orders) {
-  console.log('當天訂單載入:', orders);
+// 處理未確認訂單載入
+function handlePendingOrdersLoaded(orders) {
+  console.log('未確認訂單載入:', orders);
 
   // 清空列表
   realtimeOrders.innerHTML = '';
@@ -164,7 +164,7 @@ function handleTodayOrdersLoaded(orders) {
     realtimeOrders.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">📦</div>
-        <div class="empty-text">今日沒有訂單</div>
+        <div class="empty-text">目前沒有未確認訂單</div>
       </div>
     `;
     return;
