@@ -16,7 +16,9 @@ class SettingsManager {
       enableNotification: true,
       printDelay: 1000,
       autoStart: true,
-      printerName: ''
+      printerName: '',
+      pageSize: 'A4',
+      landscape: false
     };
 
     this.loadSettings();

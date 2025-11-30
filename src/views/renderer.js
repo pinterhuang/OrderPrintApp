@@ -298,14 +298,22 @@ function createOrderElement(order) {
   if (order.isPrinted) {
     statusBadge = '<span class="status-badge success">✓ 已列印</span>';
     actionButton = `
+      <button class="preview-btn" onclick="previewOrder(${order.order_id})">
+        👁️ 預覽
+      </button>
       <button class="reprint-btn" onclick="reprintOrder(${order.order_id})">
         🖨️ 重印
       </button>
     `;
   } else {
     statusBadge = '<span class="status-badge unprinted">⏹ 未列印</span>';
+    actionButton = `
+      <button class="preview-btn" onclick="previewOrder(${order.order_id})">
+        👁️ 預覽
+      </button>
+    `;
     if (!isAutoPrintEnabled) {
-      actionButton = `
+      actionButton += `
         <button class="print-btn" onclick="printOrder(${order.order_id})">
           🖨️ 列印
         </button>
@@ -346,6 +354,11 @@ function reprintOrder(orderId) {
   ipcRenderer.send('reprint-order', orderId);
   showToast(`重新列印訂單 #${orderId}...`, 'info');
   updateOrderStatus(orderId, 'printing');
+}
+
+// 預覽訂單
+function previewOrder(orderId) {
+  ipcRenderer.send('preview-order', orderId);
 }
 
 // 更新自動列印按鈕
@@ -451,3 +464,4 @@ function showToast(message, type = 'info') {
 // 暴露給 HTML 使用
 window.printOrder = printOrder;
 window.reprintOrder = reprintOrder;
+window.previewOrder = previewOrder;

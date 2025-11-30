@@ -302,9 +302,49 @@ ipcMain.on('reprint-order', async (event, orderId) => {
   }
 });
 
-ipcMain.on('get-printers', (event) => {
-  const printers = mainWindow.webContents.getPrinters();
-  event.reply('printers-list', printers);
+ipcMain.on('preview-order', async (event, orderId) => {
+  if (manager) {
+    try {
+      const orderDetails = await manager.fetchOrderDetails(orderId);
+      const invoiceHTML = manager.generateInvoiceHTML(orderDetails);
+
+      // 建立預覽視窗
+      const previewWindow = new BrowserWindow({
+        width: 900,
+        height: 700,
+        title: `訂單預覽 #${orderId}`,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true
+        }
+      });
+
+      previewWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(invoiceHTML));
+
+      // 開啟開發工具以便調整樣式（可選）
+      // previewWindow.webContents.openDevTools();
+    } catch (error) {
+      console.error('預覽訂單失敗:', error);
+      const { dialog } = require('electron');
+      dialog.showErrorBox('預覽失敗', `無法預覽訂單 #${orderId}: ${error.message}`);
+    }
+  }
+});
+
+ipcMain.on('get-printers', async (event) => {
+  // settingsWindow 或 mainWindow 都可以用來取得印表機列表
+  const window = settingsWindow || mainWindow;
+  if (window && window.webContents) {
+    try {
+      const printers = await window.webContents.getPrintersAsync();
+      event.reply('printers-list', printers);
+    } catch (error) {
+      console.error('取得印表機清單失敗:', error);
+      event.reply('printers-list', []);
+    }
+  } else {
+    event.reply('printers-list', []);
+  }
 });
 
 ipcMain.on('test-print', async (event, printerName) => {

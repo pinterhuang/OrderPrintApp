@@ -338,6 +338,22 @@ body {
   color: #F57C00;
 }
 
+.preview-btn {
+  padding: 6px 12px;
+  background: #9C27B0;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.3s;
+  margin-right: 5px;
+}
+
+.preview-btn:hover {
+  background: #7B1FA2;
+}
+
 .reprint-btn {
   padding: 6px 12px;
   background: #2196F3;
@@ -362,6 +378,7 @@ body {
   cursor: pointer;
   font-size: 12px;
   transition: all 0.3s;
+  margin-left: 5px;
 }
 
 .print-btn:hover {

@@ -248,6 +248,24 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label" for="pageSize">紙張尺寸</label>
+          <select id="pageSize" class="form-input">
+            <option value="A4">A4</option>
+            <option value="A5">A5</option>
+            <option value="80mm">80mm (熱感紙)</option>
+            <option value="58mm">58mm (熱感紙)</option>
+          </select>
+          <div class="form-hint">選擇列印紙張尺寸</div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-checkbox">
+            <input type="checkbox" id="landscape">
+            <label for="landscape">橫向列印</label>
+          </div>
+        </div>
+
+        <div class="form-group">
           <button type="button" class="btn btn-secondary" id="testPrintBtn" style="width: 100%;">
             🖨️ 測試列印
           </button>
@@ -303,6 +321,8 @@
     const printerName = document.getElementById('printerName');
     const refreshPrintersBtn = document.getElementById('refreshPrintersBtn');
     const testPrintBtn = document.getElementById('testPrintBtn');
+    const pageSize = document.getElementById('pageSize');
+    const landscape = document.getElementById('landscape');
     const enableSound = document.getElementById('enableSound');
     const enableNotification = document.getElementById('enableNotification');
     const autoStart = document.getElementById('autoStart');
@@ -349,6 +369,10 @@
       if (settings.printerName) {
         printerName.value = settings.printerName;
       }
+
+      // 設定版面
+      pageSize.value = settings.pageSize || 'A4';
+      landscape.checked = settings.landscape || false;
 
       enableSound.checked = settings.enableSound !== false;
       enableNotification.checked = settings.enableNotification !== false;
@@ -416,6 +440,8 @@
           recentMinutes: parseInt(recentMinutes.value),
           printDelay: parseInt(printDelay.value),
           printerName: printerName.value,
+          pageSize: pageSize.value,
+          landscape: landscape.checked,
           enableSound: enableSound.checked,
           enableNotification: enableNotification.checked,
           autoStart: autoStart.checked
