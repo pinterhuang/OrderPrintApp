@@ -426,17 +426,13 @@ class OrderPrintManager extends EventEmitter {
             silent: true,
             printBackground: true,
             margins: {
-              marginType: 'custom',
-              top: 0,
-              bottom: 0,
-              left: 0,
-              right: 0
+              marginType: 'none'
             },
             pageSize: {
-              width: 80000, // 80mm in microns
-              height: 297000 // A4 height in microns (will auto-adjust)
+              width: 80000 // 80mm in microns, height auto
             },
-            scaleFactor: 100
+            scaleFactor: 100,
+            landscape: false
           };
 
           // 如果有設定印表機名稱，使用指定印表機
@@ -481,7 +477,7 @@ class OrderPrintManager extends EventEmitter {
         <style>
           @page {
             size: 80mm auto;
-            margin: 5mm;
+            margin: 0;
           }
           * {
             margin: 0;
@@ -490,9 +486,8 @@ class OrderPrintManager extends EventEmitter {
           }
           body {
             font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif;
-            width: 80mm;
-            max-width: 80mm;
-            padding: 5mm;
+            width: 100%;
+            padding: 3mm 2mm;
             font-size: 18px;
             line-height: 1.5;
             color: #000;
@@ -572,7 +567,7 @@ class OrderPrintManager extends EventEmitter {
           }
           @media print {
             body {
-              padding: 10px;
+              padding: 3mm 2mm;
             }
           }
         </style>
