@@ -186,6 +186,12 @@ class OrderPrintManager extends EventEmitter {
     }
   }
 
+  // 重新載入今日和明日訂單
+  async loadTodayOrders() {
+    console.log('\n[手動] 重新載入今日和明日訂單...');
+    await this.loadPendingOrders();
+  }
+
   // 同步最近 2 分鐘的訂單（當天和隔天）
   async syncRecentOrders() {
     const now = Math.floor(Date.now() / 1000);
@@ -264,7 +270,7 @@ class OrderPrintManager extends EventEmitter {
     }
   }
 
-  // 列印所有未列印的訂單
+  // 列印所有未列印的訂單（手動觸發）
   async printUnprintedOrders() {
     const unprintedOrders = this.currentOrders.filter(o => !o.isPrinted);
 
@@ -277,7 +283,7 @@ class OrderPrintManager extends EventEmitter {
     console.log(`開始列印 ${unprintedOrders.length} 筆未列印訂單`);
     this.showNotification(`開始列印 ${unprintedOrders.length} 筆訂單`);
 
-    await this.printOrders(unprintedOrders);
+    await this.printOrders(unprintedOrders, true); // isManual = true
   }
 
   // 標記訂單的列印狀態
@@ -406,8 +412,13 @@ class OrderPrintManager extends EventEmitter {
   }
 
   // 列印訂單
-  async printOrders(orders) {
+  async printOrders(orders, isManual = false) {
     for (const order of orders) {
+      // 如果是自動列印，檢查是否已關閉
+      if (!isManual && !this.isAutoPrintEnabled) {
+        console.log('自動列印已關閉，停止列印');
+        break;
+      }
       await this.printSingleOrder(order);
       await this.sleep(this.config.printDelay);
     }
@@ -516,7 +527,8 @@ class OrderPrintManager extends EventEmitter {
               marginType: 'none'
             },
             pageSize: {
-              width: 80000  // 80mm in microns, height auto for continuous paper
+              width: 80000,  // 80mm in microns
+              height: 297000 // A4 height (auto-adjust for continuous paper)
             },
             scaleFactor: 100,
             landscape: false,
