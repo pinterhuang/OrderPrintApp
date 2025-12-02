@@ -305,24 +305,7 @@ ipcMain.on('reprint-order', async (event, orderId) => {
 ipcMain.on('preview-order', async (event, orderId) => {
   if (manager) {
     try {
-      const orderDetails = await manager.fetchOrderDetails(orderId);
-      const invoiceHTML = manager.generateInvoiceHTML(orderDetails);
-
-      // 建立預覽視窗
-      const previewWindow = new BrowserWindow({
-        width: 900,
-        height: 700,
-        title: `訂單預覽 #${orderId}`,
-        webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true
-        }
-      });
-
-      previewWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(invoiceHTML));
-
-      // 開啟開發工具以便調整樣式（可選）
-      // previewWindow.webContents.openDevTools();
+      await manager.previewOrder(orderId);
     } catch (error) {
       console.error('預覽訂單失敗:', error);
       const { dialog } = require('electron');

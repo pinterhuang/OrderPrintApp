@@ -744,6 +744,75 @@ class OrderPrintManager extends EventEmitter {
     }
   }
 
+  // 預覽列印訂單
+  async previewOrder(orderId) {
+    try {
+      const orderDetails = await this.fetchOrderDetails(orderId);
+      return await this.showPrintPreview(orderDetails);
+    } catch (error) {
+      console.error('預覽失敗:', error);
+      return false;
+    }
+  }
+
+  // 顯示列印預覽
+  async showPrintPreview(orderDetails) {
+    return new Promise((resolve) => {
+      const previewWindow = new BrowserWindow({
+        width: 400,
+        height: 800,
+        title: `訂單預覽 #${orderDetails.order_id || ''}`,
+        webPreferences: {
+          nodeIntegration: true,
+          contextIsolation: false
+        }
+      });
+
+      const invoiceHTML = this.generateInvoiceHTML(orderDetails);
+
+      previewWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(invoiceHTML)}`);
+
+      previewWindow.on('closed', () => {
+        resolve(true);
+      });
+
+      // 加入列印按鈕
+      previewWindow.webContents.on('did-finish-load', () => {
+        previewWindow.webContents.executeJavaScript(`
+          const printButton = document.createElement('button');
+          printButton.textContent = '列印';
+          printButton.style.cssText = \`
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 9999;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          \`;
+          printButton.onclick = () => {
+            window.print();
+          };
+          document.body.appendChild(printButton);
+
+          // 隱藏列印按鈕在實際列印時
+          window.matchMedia('print').addListener((mql) => {
+            if (mql.matches) {
+              printButton.style.display = 'none';
+            } else {
+              printButton.style.display = 'block';
+            }
+          });
+        `);
+      });
+    });
+  }
+
   // 取得統計資料
   async getStats() {
     const today = this.getStartOfDay();
