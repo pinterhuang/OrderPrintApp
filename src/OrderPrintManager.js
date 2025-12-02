@@ -456,7 +456,8 @@ class OrderPrintManager extends EventEmitter {
               marginType: 'none'
             },
             pageSize: {
-              width: 80000 // 80mm in microns, height auto
+              width: 80000,  // 80mm in microns
+              height: 297000 // A4 height in microns (auto-adjust for continuous paper)
             },
             scaleFactor: 100,
             landscape: false
