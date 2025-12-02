@@ -452,15 +452,16 @@ class OrderPrintManager extends EventEmitter {
           const printOptions = {
             silent: true,
             printBackground: true,
+            color: false,  // 黑白列印
             margins: {
               marginType: 'none'
             },
             pageSize: {
-              width: 80000,  // 80mm in microns
-              height: 297000 // A4 height in microns (auto-adjust for continuous paper)
+              width: 80000  // 80mm in microns, height auto for continuous paper
             },
             scaleFactor: 100,
-            landscape: false
+            landscape: false,
+            preferCSSPageSize: true  // 使用 CSS @page 設定
           };
 
           // 如果有設定印表機名稱，使用指定印表機
@@ -493,9 +494,36 @@ class OrderPrintManager extends EventEmitter {
 
   // 生成發票 HTML - 完全參照後台 last_orders.php 格式
   generateInvoiceHTML(orderDetails) {
-    const customer = orderDetails.customer || {};
+    // 解析資料結構
+    const customer = orderDetails.customer || {
+      name: orderDetails.customer_name || '未知',
+      phone: orderDetails.customer_phone || '',
+      email: orderDetails.customer_email || '',
+      address: orderDetails.customer_address || ''
+    };
+
     const products = orderDetails.products || [];
     const payment = orderDetails.payment || {};
+
+    // 計算總計
+    let sub_total = 0;
+    const productsHTML = products.map((product, index) => {
+      const product_total = (product.total_price || 0);
+      sub_total += product_total;
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${product.name || ''}</td>
+          <td>${product.quantity || 0}</td>
+          <td>${product.unit_number || ''} ${product.unit || ''}</td>
+          <td>${(product.unit_number * product.quantity) || ''} ${product.unit || ''}</td>
+          <td>${product_total}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const delivery_charge = orderDetails.delivery_charge || 0;
+    const grand_total = sub_total + delivery_charge;
 
     return `
       <!DOCTYPE html>
@@ -515,74 +543,70 @@ class OrderPrintManager extends EventEmitter {
           body {
             font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif;
             width: 100%;
-            padding: 3mm 2mm;
-            font-size: 18px;
-            line-height: 1.5;
+            padding: 5mm 3mm;
+            font-size: 12px;
+            line-height: 1.4;
             color: #000;
           }
           .customer-section {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
           }
           .customer-section p {
-            margin: 0;
-            padding: 4px 0;
-            font-size: 18px;
+            margin: 2px 0;
+            font-size: 12px;
           }
           .customer-section p b {
-            font-size: 20px;
+            font-size: 14px;
+            font-weight: bold;
           }
           h6 {
-            font-size: 20px;
-            margin: 15px 0 10px 0;
+            font-size: 14px;
+            margin: 12px 0 6px 0;
             font-weight: bold;
             color: #000;
           }
-          .order-table {
+          table {
             width: 100%;
             border-collapse: collapse;
-            margin: 10px 0 20px 0;
-            font-size: 16px;
+            margin: 8px 0;
+            font-size: 11px;
           }
-          .order-table thead th {
-            background-color: #333;
+          table.order-table thead th {
+            background-color: #6c757d;
             color: white;
-            padding: 10px 12px;
+            padding: 6px 4px;
             text-align: left;
-            border: 1px solid #000;
-            font-size: 18px;
+            border: 1px solid #495057;
+            font-size: 12px;
+            font-weight: bold;
           }
-          .order-table tbody tr {
-            background-color: #fff;
+          table.order-table tbody td {
+            padding: 5px 4px;
+            border: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+            font-size: 11px;
           }
-          .order-table tbody td {
-            padding: 10px 12px;
-            border: 1px solid #000;
-            font-size: 16px;
+          table.order-table tbody tr.border-top td {
+            border-top: 2px solid #495057;
+            font-weight: bold;
           }
-          .order-table .border-top {
-            border-top: 2px solid #333 !important;
-          }
-          .payment-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 10px 0;
-            font-size: 18px;
-          }
-          .payment-table thead th {
-            padding: 10px 12px;
+          table.payment-table thead th {
+            padding: 6px 4px;
             text-align: left;
-            border-bottom: 2px solid #000;
-            font-size: 18px;
+            font-size: 12px;
+            font-weight: bold;
           }
-          .payment-table tbody td {
-            padding: 10px 12px;
-            font-size: 18px;
+          table.payment-table tbody td {
+            padding: 5px 4px;
+            font-size: 11px;
           }
           .badge {
             display: inline-block;
-            padding: 6px 12px;
+            padding: 3px 8px;
             border-radius: 3px;
-            font-size: 16px;
+            font-size: 10px;
             font-weight: bold;
           }
           .badge-success {
@@ -595,7 +619,7 @@ class OrderPrintManager extends EventEmitter {
           }
           @media print {
             body {
-              padding: 3mm 2mm;
+              padding: 5mm 3mm;
             }
           }
         </style>
@@ -622,23 +646,14 @@ class OrderPrintManager extends EventEmitter {
             </tr>
           </thead>
           <tbody>
-            ${products.map((product, index) => `
-              <tr>
-                <td>${index + 1}</td>
-                <td>${product.name || ''}</td>
-                <td>${product.quantity || 0}</td>
-                <td>${product.unit_number || ''} ${product.unit || ''}</td>
-                <td>${product.total_unit || ''}</td>
-                <td>${product.total_price || 0}</td>
-              </tr>
-            `).join('')}
+            ${productsHTML}
             <tr class="border-top">
               <td></td>
               <td></td>
               <td></td>
               <td></td>
               <td>小計</td>
-              <td>${orderDetails.sub_total || 0}</td>
+              <td>${sub_total}</td>
             </tr>
             <tr>
               <td></td>
@@ -646,15 +661,15 @@ class OrderPrintManager extends EventEmitter {
               <td></td>
               <td></td>
               <td>運費</td>
-              <td>${orderDetails.delivery_charge > 0 ? orderDetails.delivery_charge : '免費'}</td>
+              <td>${delivery_charge > 0 ? delivery_charge : '免費'}</td>
             </tr>
-            <tr>
+            <tr class="border-top">
               <td></td>
               <td></td>
               <td></td>
               <td></td>
-              <td class="border-top">總計</td>
-              <td class="border-top">${orderDetails.grand_total || 0}</td>
+              <td>總計</td>
+              <td>${grand_total}</td>
             </tr>
           </tbody>
         </table>
@@ -672,16 +687,16 @@ class OrderPrintManager extends EventEmitter {
           </thead>
           <tbody>
             <tr>
-              <td>${payment.payment_type || 'cash_on_delivery'}</td>
+              <td>${payment.payment_type || '貨到付款'}</td>
               <td>
                 ${payment.status === 'paid'
                   ? '<span class="badge badge-success">已付款</span>'
                   : '<span class="badge badge-danger">未付款</span>'
                 }
               </td>
-              <td class="border-top">${payment.total_price || orderDetails.grand_total || 0}</td>
-              <td class="border-top">${this.formatDate(payment.date_added || orderDetails.date_added)}</td>
-              <td class="border-top">${this.formatDate(orderDetails.ship_date)}</td>
+              <td>${payment.total_price || grand_total}</td>
+              <td>${this.formatDate(payment.date_added || orderDetails.date_added)}</td>
+              <td>${this.formatDate(orderDetails.ship_date || payment.ship_date)}</td>
             </tr>
           </tbody>
         </table>

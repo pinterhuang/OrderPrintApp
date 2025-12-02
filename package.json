@@ -24,6 +24,7 @@
   "build": {
     "appId": "com.vegetableuniversity.orderprinter",
     "productName": "訂單列印系統",
+    "copyright": "Copyright © 2025 Vegetable University",
     "directories": {
       "output": "dist"
     },
@@ -41,11 +42,17 @@
     },
     "mac": {
       "target": "dmg",
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.business",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "category": "Office"
     }
   }
 }
