@@ -105,8 +105,15 @@ class OrderPrintManager extends EventEmitter {
     if (this.isAutoPrintEnabled) {
       console.log('✅ 自動列印：已開啟');
 
-      // 開啟時，立即列印所有未列印的訂單
-      this.printUnprintedOrders();
+      // 開啟時，設定 flag 並建立列印迴圈
+      const unprintedOrders = this.currentOrders
+        .filter(o => !o.isPrinted)
+        .sort((a, b) => a.date_added - b.date_added); // 從最舊到最新
+
+      if (unprintedOrders.length > 0) {
+        console.log(`開始列印 ${unprintedOrders.length} 筆未列印訂單（從舊到新）`);
+        this.startPrintLoop(unprintedOrders);
+      }
 
       this.emit('statusUpdate', {
         status: 'running',
@@ -252,11 +259,15 @@ class OrderPrintManager extends EventEmitter {
           this.showNotification(`發現 ${unprintedCount} 筆新訂單`);
         }
 
-        // 如果自動列印已開啟，列印新訂單
+        // 如果自動列印已開啟，建立列印迴圈
         if (this.isAutoPrintEnabled) {
-          const unprintedOrders = newOrders.filter(o => !o.isPrinted);
+          const unprintedOrders = newOrders
+            .filter(o => !o.isPrinted)
+            .sort((a, b) => a.date_added - b.date_added); // 從最舊到最新
+
           if (unprintedOrders.length > 0) {
-            await this.printOrders(unprintedOrders);
+            console.log(`新訂單列印：${unprintedOrders.length} 筆（從舊到新）`);
+            this.startPrintLoop(unprintedOrders);
           }
         }
       }
@@ -270,9 +281,25 @@ class OrderPrintManager extends EventEmitter {
     }
   }
 
+  // 開始列印迴圈（會檢查自動列印 flag）
+  async startPrintLoop(orders) {
+    for (const order of orders) {
+      // 檢查自動列印 flag，若關閉則跳出迴圈
+      if (!this.isAutoPrintEnabled) {
+        console.log('自動列印已關閉，停止列印迴圈');
+        break;
+      }
+
+      await this.printSingleOrder(order);
+      await this.sleep(this.config.printDelay);
+    }
+  }
+
   // 列印所有未列印的訂單（手動觸發）
   async printUnprintedOrders() {
-    const unprintedOrders = this.currentOrders.filter(o => !o.isPrinted);
+    const unprintedOrders = this.currentOrders
+      .filter(o => !o.isPrinted)
+      .sort((a, b) => a.date_added - b.date_added); // 從最舊到最新
 
     if (unprintedOrders.length === 0) {
       console.log('沒有未列印的訂單');
@@ -280,10 +307,14 @@ class OrderPrintManager extends EventEmitter {
       return;
     }
 
-    console.log(`開始列印 ${unprintedOrders.length} 筆未列印訂單`);
+    console.log(`手動列印 ${unprintedOrders.length} 筆訂單（從舊到新）`);
     this.showNotification(`開始列印 ${unprintedOrders.length} 筆訂單`);
 
-    await this.printOrders(unprintedOrders, true); // isManual = true
+    // 手動列印不受自動列印 flag 影響
+    for (const order of unprintedOrders) {
+      await this.printSingleOrder(order);
+      await this.sleep(this.config.printDelay);
+    }
   }
 
   // 標記訂單的列印狀態
@@ -365,19 +396,6 @@ class OrderPrintManager extends EventEmitter {
     const printedIds = rows.map(r => r.order_id);
 
     return orders.filter(order => !printedIds.includes(order.order_id));
-  }
-
-  // 列印訂單
-  async printOrders(orders, isManual = false) {
-    for (const order of orders) {
-      // 如果是自動列印，檢查是否已關閉
-      if (!isManual && !this.isAutoPrintEnabled) {
-        console.log('自動列印已關閉，停止列印');
-        break;
-      }
-      await this.printSingleOrder(order);
-      await this.sleep(this.config.printDelay);
-    }
   }
 
   // 列印單一訂單
