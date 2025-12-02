@@ -1,6 +1,6 @@
 {
   "name": "vegetable-order-printer",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "蔬果大學訂單自動列印系統",
   "main": "main.js",
   "scripts": {
