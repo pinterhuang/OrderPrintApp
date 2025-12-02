@@ -44,10 +44,7 @@
       "target": "dmg",
       "icon": "assets/icon.icns",
       "category": "public.app-category.business",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
+      "identity": null,
       "bundleVersion": "1.0.7",
       "bundleShortVersion": "1.0.7"
     },

@@ -329,33 +329,64 @@ class OrderPrintManager extends EventEmitter {
 
     let orders = data.orders || [];
 
-    // 格式化訂單資料並獲取客戶資訊
-    orders = await Promise.all(orders.map(async (order) => {
+    // 格式化訂單資料
+    orders = orders.map(order => {
       let customerName = order.customer_name || order.name || '';
       let customerPhone = order.customer_phone || order.phone || '';
 
-      // 如果沒有客戶資訊，從訂單詳情 API 獲取
-      if (!customerName || customerName === '') {
-        try {
-          const details = await this.fetchOrderDetails(order.order_id);
-          customerName = details.customer?.name || details.customer_name || '未知客戶';
-          customerPhone = details.customer?.phone || details.customer_phone || '';
-        } catch (error) {
-          console.error(`Failed to fetch customer info for order ${order.order_id}:`, error);
-          customerName = '未知客戶';
-        }
-      }
-
       return {
         ...order,
-        customer_name: customerName,
+        customer_name: customerName || '未知客戶',
         customer_phone: customerPhone,
         total_price: parseFloat(order.order_total || order.total_price || 0),
-        date_added: parseInt(order.order_placed_timestamp || order.date_added || 0)
+        date_added: parseInt(order.order_placed_timestamp || order.date_added || 0),
+        _needsCustomerInfo: !customerName || customerName === '' // 標記需要獲取客戶資訊
       };
-    }));
+    });
+
+    // 在背景逐一獲取缺少客戶資訊的訂單詳情（不阻塞主流程）
+    this.fetchMissingCustomerInfo(orders);
 
     return orders;
+  }
+
+  // 在背景獲取缺少的客戶資訊（不阻塞主流程）
+  async fetchMissingCustomerInfo(orders) {
+    const ordersNeedingInfo = orders.filter(o => o._needsCustomerInfo);
+
+    if (ordersNeedingInfo.length === 0) return;
+
+    console.log(`背景獲取 ${ordersNeedingInfo.length} 筆訂單的客戶資訊...`);
+
+    // 逐一獲取，避免同時發送太多請求
+    for (const order of ordersNeedingInfo) {
+      try {
+        const details = await this.fetchOrderDetails(order.order_id);
+        const customerName = details.customer?.name || details.customer_name || '未知客戶';
+        const customerPhone = details.customer?.phone || details.customer_phone || '';
+
+        // 更新訂單物件
+        order.customer_name = customerName;
+        order.customer_phone = customerPhone;
+        order._needsCustomerInfo = false;
+
+        // 更新 currentOrders 中的對應訂單
+        const index = this.currentOrders.findIndex(o => o.order_id === order.order_id);
+        if (index !== -1) {
+          this.currentOrders[index].customer_name = customerName;
+          this.currentOrders[index].customer_phone = customerPhone;
+        }
+
+        // 通知前端更新
+        this.emit('orderUpdated', order);
+
+      } catch (error) {
+        console.error(`獲取訂單 ${order.order_id} 客戶資訊失敗:`, error.message);
+      }
+
+      // 延遲 100ms 避免 API 請求過於頻繁
+      await this.sleep(100);
+    }
   }
 
   // 過濾出未列印的訂單

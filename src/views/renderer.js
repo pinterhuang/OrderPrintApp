@@ -109,6 +109,21 @@ function setupEventListeners() {
       showToast(`訂單 #${data.orderId} 重新列印失敗`, 'error');
     }
   });
+
+  ipcRenderer.on('order-updated', (event, order) => {
+    // 更新訂單顯示（客戶名稱等資訊）
+    const orderElement = document.querySelector(`[data-order-id="${order.order_id}"]`);
+    if (orderElement) {
+      const nameElement = orderElement.querySelector('.order-customer');
+      if (nameElement && order.customer_name) {
+        nameElement.textContent = `👤 ${order.customer_name}`;
+      }
+      const phoneElement = orderElement.querySelector('.order-phone');
+      if (phoneElement && order.customer_phone) {
+        phoneElement.textContent = `📞 ${order.customer_phone}`;
+      }
+    }
+  });
 }
 
 // 切換 Tab

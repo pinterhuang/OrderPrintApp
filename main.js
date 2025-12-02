@@ -214,6 +214,12 @@ app.whenReady().then(() => {
           mainWindow.webContents.send('auto-print-toggled', enabled);
         }
       });
+
+      manager.on('orderUpdated', (order) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('order-updated', order);
+        }
+      });
     }, 2000);
   }
 
