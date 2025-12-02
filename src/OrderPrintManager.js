@@ -139,22 +139,34 @@ class OrderPrintManager extends EventEmitter {
     console.log('🔄 訂單同步已啟動');
   }
 
-  // 載入所有未確認訂單（首次啟動）- 參照後台 get_last_orders
+  // 載入當天和隔天未確認訂單（首次啟動）
   async loadPendingOrders() {
-    console.log('\n[首次啟動] 載入所有未確認訂單（pending）...');
+    console.log('\n[首次啟動] 載入當天和隔天未確認訂單（pending）...');
 
     try {
-      // 取得所有 pending 狀態的訂單，date_from = 0 表示不限時間
-      // 這會載入所有尚未處理的訂單，和後台 get_last_orders(0) 一樣
+      // 取得當天開始的時間戳（00:00:00）
+      const todayStart = this.getStartOfDay();
+      // 取得後天開始的時間戳（隔天 23:59:59 之後）
+      const tomorrowEnd = this.getStartOfDay(2);
+
+      // 取得當天和隔天的 pending 訂單
       const orders = await this.fetchOrders({
         status: 'pending',
-        date_from: 0
+        date_from: todayStart
       });
 
       console.log(`找到 ${orders.length} 筆未確認訂單`);
 
+      // 過濾：只保留當天和隔天的訂單（從今天 00:00 到後天 00:00）
+      const relevantOrders = orders.filter(order => {
+        const orderDate = order.date_added || 0;
+        return orderDate >= todayStart && orderDate < tomorrowEnd;
+      });
+
+      console.log(`當天和隔天訂單數量: ${relevantOrders.length}`);
+
       // 標記列印狀態
-      const ordersWithStatus = await this.markOrdersPrintStatus(orders);
+      const ordersWithStatus = await this.markOrdersPrintStatus(relevantOrders);
       this.currentOrders = ordersWithStatus;
 
       // 發送到前端顯示
@@ -174,10 +186,12 @@ class OrderPrintManager extends EventEmitter {
     }
   }
 
-  // 同步最近 2 分鐘的訂單
+  // 同步最近 2 分鐘的訂單（當天和隔天）
   async syncRecentOrders() {
     const now = Math.floor(Date.now() / 1000);
     const recentTime = now - (this.config.recentMinutes * 60);
+    const todayStart = this.getStartOfDay();
+    const tomorrowEnd = this.getStartOfDay(2);
 
     console.log(`\n[${new Date().toLocaleTimeString()}] 同步最近 ${this.config.recentMinutes} 分鐘的訂單...`);
 
@@ -195,8 +209,21 @@ class OrderPrintManager extends EventEmitter {
 
       console.log(`找到 ${orders.length} 筆最近訂單`);
 
+      // 只保留當天和隔天的訂單
+      const relevantOrders = orders.filter(order => {
+        const orderDate = order.date_added || 0;
+        return orderDate >= todayStart && orderDate < tomorrowEnd;
+      });
+
+      if (relevantOrders.length === 0) {
+        console.log('沒有當天和隔天的新訂單');
+        return;
+      }
+
+      console.log(`當天和隔天訂單: ${relevantOrders.length} 筆`);
+
       // 標記列印狀態
-      const ordersWithStatus = await this.markOrdersPrintStatus(orders);
+      const ordersWithStatus = await this.markOrdersPrintStatus(relevantOrders);
 
       // 找出新訂單（不在 currentOrders 中）
       const newOrders = ordersWithStatus.filter(order =>
