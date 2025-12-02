@@ -1,6 +1,6 @@
 {
   "name": "vegetable-order-printer",
-  "version": "1.0.0",
+  "version": "1.0.7",
   "description": "蔬果大學訂單自動列印系統",
   "main": "main.js",
   "scripts": {
@@ -47,7 +47,9 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "bundleVersion": "1.0.7",
+      "bundleShortVersion": "1.0.7"
     },
     "linux": {
       "target": "AppImage",

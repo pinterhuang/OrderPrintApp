@@ -329,13 +329,30 @@ class OrderPrintManager extends EventEmitter {
 
     let orders = data.orders || [];
 
-    // 格式化訂單資料
-    orders = orders.map(order => ({
-      ...order,
-      customer_name: order.customer_name || '未知客戶',
-      customer_phone: order.customer_phone || '',
-      total_price: parseFloat(order.order_total || order.total_price || 0),
-      date_added: parseInt(order.order_placed_timestamp || order.date_added || 0)
+    // 格式化訂單資料並獲取客戶資訊
+    orders = await Promise.all(orders.map(async (order) => {
+      let customerName = order.customer_name || order.name || '';
+      let customerPhone = order.customer_phone || order.phone || '';
+
+      // 如果沒有客戶資訊，從訂單詳情 API 獲取
+      if (!customerName || customerName === '') {
+        try {
+          const details = await this.fetchOrderDetails(order.order_id);
+          customerName = details.customer?.name || details.customer_name || '未知客戶';
+          customerPhone = details.customer?.phone || details.customer_phone || '';
+        } catch (error) {
+          console.error(`Failed to fetch customer info for order ${order.order_id}:`, error);
+          customerName = '未知客戶';
+        }
+      }
+
+      return {
+        ...order,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        total_price: parseFloat(order.order_total || order.total_price || 0),
+        date_added: parseInt(order.order_placed_timestamp || order.date_added || 0)
+      };
     }));
 
     return orders;
