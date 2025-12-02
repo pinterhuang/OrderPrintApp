@@ -396,24 +396,35 @@ class OrderPrintManager extends EventEmitter {
       // 取得訂單詳細資料
       const orderDetails = await this.fetchOrderDetails(order.order_id);
 
+      // 從詳細資料中提取客戶資訊
+      const customerName = orderDetails.customer?.name || orderDetails.customer_name || order.customer_name || '未知客戶';
+      const customerPhone = orderDetails.customer?.phone || orderDetails.customer_phone || order.customer_phone || '';
+
+      // 更新訂單物件的客戶資訊
+      const updatedOrder = {
+        ...order,
+        customer_name: customerName,
+        customer_phone: customerPhone
+      };
+
       // 執行列印
       const success = await this.autoPrint(orderDetails);
 
       if (success) {
-        await this.markAsPrinted(order, 'success');
+        await this.markAsPrinted(updatedOrder, 'success');
         console.log(`   ✅ 列印成功`);
 
         // 更新 currentOrders 中的狀態
         this.updateOrderStatus(order.order_id, true);
 
         this.showNotification(`訂單 #${order.order_id} 列印成功`);
-        this.emit('orderPrinted', { ...order, isPrinted: true }, true);
+        this.emit('orderPrinted', { ...updatedOrder, isPrinted: true }, true);
       } else {
-        await this.markAsPrinted(order, 'failed');
+        await this.markAsPrinted(updatedOrder, 'failed');
         console.log(`   ❌ 列印失敗`);
 
         this.showNotification(`訂單 #${order.order_id} 列印失敗`, true);
-        this.emit('orderPrinted', order, false);
+        this.emit('orderPrinted', updatedOrder, false);
       }
 
     } catch (error) {
