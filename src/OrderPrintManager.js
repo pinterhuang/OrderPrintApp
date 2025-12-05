@@ -500,13 +500,9 @@ class OrderPrintManager extends EventEmitter {
             margins: {
               marginType: 'none'
             },
-            pageSize: {
-              width: 80000,  // 80mm in microns
-              height: 297000 // A4 height (auto-adjust for continuous paper)
-            },
             scaleFactor: 100,
             landscape: false,
-            preferCSSPageSize: true  // 使用 CSS @page 設定
+            preferCSSPageSize: true  // 使用 CSS @page 設定（size: 80mm auto）
           };
 
           // 如果有設定印表機名稱，使用指定印表機
@@ -541,10 +537,10 @@ class OrderPrintManager extends EventEmitter {
   generateInvoiceHTML(orderDetails) {
     // 解析資料結構
     const customer = orderDetails.customer || {
-      name: orderDetails.customer_name || '未知',
-      phone: orderDetails.customer_phone || '',
-      email: orderDetails.customer_email || '',
-      address: orderDetails.customer_address || ''
+      name: orderDetails.user_name || orderDetails.customer_name || '未知',
+      phone: orderDetails.phone || orderDetails.customer_phone || '',
+      email: orderDetails.email || orderDetails.customer_email || '',
+      address: orderDetails.address || orderDetails.customer_address || ''
     };
 
     const products = orderDetails.products || [];
@@ -553,16 +549,19 @@ class OrderPrintManager extends EventEmitter {
     // 計算總計
     let sub_total = 0;
     const productsHTML = products.map((product, index) => {
-      const product_total = (product.total_price || 0);
+      const quantity = parseInt(product.item_quantity || product.quantity || 0);
+      const unit_price = parseFloat(product.discount_price || product.price || 0);
+      const product_total = (product.total_price || (unit_price * quantity));
       sub_total += product_total;
+
       return `
         <tr>
           <td>${index + 1}</td>
           <td>${product.name || ''}</td>
-          <td>${product.quantity || 0}</td>
-          <td>${product.unit_number || ''} ${product.unit || ''}</td>
-          <td>${(product.unit_number * product.quantity) || ''} ${product.unit || ''}</td>
-          <td>${product_total}</td>
+          <td>${quantity}</td>
+          <td>${product.unit || ''}</td>
+          <td>${quantity} ${product.unit || ''}</td>
+          <td>NT$${product_total}</td>
         </tr>
       `;
     }).join('');
@@ -698,7 +697,7 @@ class OrderPrintManager extends EventEmitter {
               <td></td>
               <td></td>
               <td>小計</td>
-              <td>${sub_total}</td>
+              <td>NT$${sub_total}</td>
             </tr>
             <tr>
               <td></td>
@@ -706,7 +705,7 @@ class OrderPrintManager extends EventEmitter {
               <td></td>
               <td></td>
               <td>運費</td>
-              <td>${delivery_charge > 0 ? delivery_charge : '免費'}</td>
+              <td>${delivery_charge > 0 ? 'NT$' + delivery_charge : '免費'}</td>
             </tr>
             <tr class="border-top">
               <td></td>
@@ -714,7 +713,7 @@ class OrderPrintManager extends EventEmitter {
               <td></td>
               <td></td>
               <td>總計</td>
-              <td>${grand_total}</td>
+              <td>NT$${grand_total}</td>
             </tr>
           </tbody>
         </table>
@@ -732,15 +731,15 @@ class OrderPrintManager extends EventEmitter {
           </thead>
           <tbody>
             <tr>
-              <td>${payment.payment_type || '貨到付款'}</td>
+              <td>${orderDetails.payment_type || payment.payment_type || '貨到付款'}</td>
               <td>
-                ${payment.status === 'paid'
+                ${(orderDetails.payment_status || payment.status) === 'paid'
                   ? '<span class="badge badge-success">已付款</span>'
                   : '<span class="badge badge-danger">未付款</span>'
                 }
               </td>
-              <td>${payment.total_price || grand_total}</td>
-              <td>${this.formatDate(payment.date_added || orderDetails.date_added)}</td>
+              <td>NT$${grand_total}</td>
+              <td>${this.formatDate(orderDetails.date_added || payment.date_added)}</td>
               <td>${this.formatDate(orderDetails.ship_date || payment.ship_date)}</td>
             </tr>
           </tbody>
