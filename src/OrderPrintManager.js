@@ -586,84 +586,107 @@ class OrderPrintManager extends EventEmitter {
           }
           body {
             font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif;
-            width: 100%;
-            padding: 5mm 3mm;
-            font-size: 12px;
+            width: 80mm;
+            padding: 4mm;
+            font-size: 11px;
             line-height: 1.4;
             color: #000;
           }
           .customer-section {
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #ddd;
+            margin-bottom: 3mm;
+            padding-bottom: 2mm;
+            border-bottom: 1px dashed #333;
           }
           .customer-section p {
-            margin: 2px 0;
-            font-size: 12px;
+            margin: 1mm 0;
+            font-size: 11px;
+            line-height: 1.3;
           }
           .customer-section p b {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: bold;
           }
           h6 {
-            font-size: 14px;
-            margin: 12px 0 6px 0;
+            font-size: 12px;
+            margin: 3mm 0 2mm 0;
             font-weight: bold;
             color: #000;
+            border-bottom: 1px solid #333;
+            padding-bottom: 1mm;
           }
           table {
             width: 100%;
             border-collapse: collapse;
-            margin: 8px 0;
-            font-size: 11px;
+            margin: 2mm 0;
+            font-size: 10px;
           }
           table.order-table thead th {
-            background-color: #6c757d;
+            background-color: #333;
             color: white;
-            padding: 6px 4px;
+            padding: 1.5mm 1mm;
             text-align: left;
-            border: 1px solid #495057;
-            font-size: 12px;
-            font-weight: bold;
-          }
-          table.order-table tbody td {
-            padding: 5px 4px;
-            border: 1px solid #dee2e6;
-            background-color: #f8f9fa;
-            font-size: 11px;
-          }
-          table.order-table tbody tr.border-top td {
-            border-top: 2px solid #495057;
-            font-weight: bold;
-          }
-          table.payment-table thead th {
-            padding: 6px 4px;
-            text-align: left;
-            font-size: 12px;
-            font-weight: bold;
-          }
-          table.payment-table tbody td {
-            padding: 5px 4px;
-            font-size: 11px;
-          }
-          .badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 3px;
+            border: 1px solid #000;
             font-size: 10px;
             font-weight: bold;
           }
+          table.order-table tbody td {
+            padding: 1.5mm 1mm;
+            border: 1px solid #999;
+            background-color: #fff;
+            font-size: 10px;
+          }
+          table.order-table tbody tr.border-top td {
+            border-top: 2px solid #000;
+            font-weight: bold;
+            background-color: #f0f0f0;
+          }
+          table.payment-table thead th {
+            padding: 1.5mm 1mm;
+            text-align: left;
+            font-size: 10px;
+            font-weight: bold;
+            border-bottom: 1px solid #333;
+          }
+          table.payment-table tbody td {
+            padding: 1.5mm 1mm;
+            font-size: 10px;
+          }
+          .badge {
+            display: inline-block;
+            padding: 1mm 2mm;
+            border-radius: 2px;
+            font-size: 9px;
+            font-weight: bold;
+          }
           .badge-success {
-            background-color: #28a745;
+            background-color: #000;
             color: white;
           }
           .badge-danger {
-            background-color: #dc3545;
+            background-color: #666;
             color: white;
+          }
+          .note-section {
+            margin-top: 3mm;
+            padding: 2mm;
+            background-color: #f5f5f5;
+            border: 1px dashed #333;
+          }
+          .note-section h6 {
+            margin: 0 0 1mm 0;
+            font-size: 11px;
+            border-bottom: none;
+            padding-bottom: 0;
+          }
+          .note-section p {
+            margin: 0;
+            font-size: 10px;
+            line-height: 1.4;
+            word-wrap: break-word;
           }
           @media print {
             body {
-              padding: 5mm 3mm;
+              padding: 4mm;
             }
           }
         </style>
@@ -744,6 +767,13 @@ class OrderPrintManager extends EventEmitter {
             </tr>
           </tbody>
         </table>
+
+        ${orderDetails.note ? `
+        <div class="note-section">
+          <h6>備註 :</h6>
+          <p>${orderDetails.note}</p>
+        </div>
+        ` : ''}
       </body>
       </html>
     `;
