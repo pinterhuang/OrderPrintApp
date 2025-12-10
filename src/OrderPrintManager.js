@@ -546,28 +546,28 @@ class OrderPrintManager extends EventEmitter {
     const products = orderDetails.products || [];
     const payment = orderDetails.payment || {};
 
-    // 計算總計
-    let sub_total = 0;
-    const productsHTML = products.map((product, index) => {
+    // 計算總計和品項數
+    let grand_total = 0;
+    const itemCount = products.length;
+    const productsHTML = products.map((product) => {
       const quantity = parseInt(product.item_quantity || product.quantity || 0);
       const unit_price = parseFloat(product.discount_price || product.price || 0);
       const product_total = (product.total_price || (unit_price * quantity));
-      sub_total += product_total;
+      grand_total += product_total;
 
       return `
         <tr>
-          <td>${index + 1}</td>
           <td>${product.name || ''}</td>
-          <td>${quantity}</td>
-          <td>${product.unit || ''}</td>
           <td>${quantity} ${product.unit || ''}</td>
+          <td>NT$${unit_price}</td>
           <td>NT$${product_total}</td>
         </tr>
       `;
     }).join('');
 
+    // 加上運費（如果有）
     const delivery_charge = orderDetails.delivery_charge || 0;
-    const grand_total = sub_total + delivery_charge;
+    grand_total += delivery_charge;
 
     return `
       <!DOCTYPE html>
@@ -629,6 +629,18 @@ class OrderPrintManager extends EventEmitter {
             font-size: 10px;
             font-weight: bold;
           }
+          table.order-table thead th:nth-child(1) {
+            width: 40%;
+          }
+          table.order-table thead th:nth-child(2) {
+            width: 20%;
+          }
+          table.order-table thead th:nth-child(3) {
+            width: 20%;
+          }
+          table.order-table thead th:nth-child(4) {
+            width: 20%;
+          }
           table.order-table tbody td {
             padding: 1.5mm 1mm;
             border: 1px solid #999;
@@ -639,32 +651,7 @@ class OrderPrintManager extends EventEmitter {
             border-top: 2px solid #000;
             font-weight: bold;
             background-color: #f0f0f0;
-          }
-          table.payment-table thead th {
-            padding: 1.5mm 1mm;
-            text-align: left;
-            font-size: 10px;
-            font-weight: bold;
-            border-bottom: 1px solid #333;
-          }
-          table.payment-table tbody td {
-            padding: 1.5mm 1mm;
-            font-size: 10px;
-          }
-          .badge {
-            display: inline-block;
-            padding: 1mm 2mm;
-            border-radius: 2px;
-            font-size: 9px;
-            font-weight: bold;
-          }
-          .badge-success {
-            background-color: #000;
-            color: white;
-          }
-          .badge-danger {
-            background-color: #666;
-            color: white;
+            font-size: 11px;
           }
           .note-section {
             margin-top: 3mm;
@@ -704,66 +691,18 @@ class OrderPrintManager extends EventEmitter {
         <table class="order-table">
           <thead>
             <tr>
-              <th>#</th>
               <th>品名</th>
-              <th>數量</th>
-              <th>單位</th>
               <th>總單位</th>
-              <th>價格</th>
+              <th>單價</th>
+              <th>總價</th>
             </tr>
           </thead>
           <tbody>
             ${productsHTML}
             <tr class="border-top">
+              <td colspan="2">總計 (共${itemCount}項)</td>
               <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td>小計</td>
-              <td>NT$${sub_total}</td>
-            </tr>
-            <tr>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td>運費</td>
-              <td>${delivery_charge > 0 ? 'NT$' + delivery_charge : '免費'}</td>
-            </tr>
-            <tr class="border-top">
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td>總計</td>
               <td>NT$${grand_total}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h6>付款報告 :</h6>
-        <table class="payment-table">
-          <thead>
-            <tr>
-              <th>付款方式</th>
-              <th>付款狀態</th>
-              <th>金額</th>
-              <th>日期</th>
-              <th>寄送日期</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${orderDetails.payment_type || payment.payment_type || '貨到付款'}</td>
-              <td>
-                ${(orderDetails.payment_status || payment.status) === 'paid'
-                  ? '<span class="badge badge-success">已付款</span>'
-                  : '<span class="badge badge-danger">未付款</span>'
-                }
-              </td>
-              <td>NT$${grand_total}</td>
-              <td>${this.formatDate(orderDetails.date_added || payment.date_added)}</td>
-              <td>${this.formatDate(orderDetails.ship_date || payment.ship_date)}</td>
             </tr>
           </tbody>
         </table>
