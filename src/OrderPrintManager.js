@@ -552,15 +552,15 @@ class OrderPrintManager extends EventEmitter {
     const productsHTML = products.map((product) => {
       const quantity = parseInt(product.item_quantity || product.quantity || 0);
       const unit_price = parseFloat(product.discount_price || product.price || 0);
-      const product_total = (product.total_price || (unit_price * quantity));
+      const product_total = parseFloat(product.total_price || (unit_price * quantity));
       grand_total += product_total;
 
       return `
         <tr>
           <td>${product.name || ''}</td>
           <td>${quantity} ${product.unit || ''}</td>
-          <td>NT$${unit_price}</td>
-          <td>NT$${product_total}</td>
+          <td>${Math.round(unit_price)}</td>
+          <td>${Math.round(product_total)}</td>
         </tr>
       `;
     }).join('');
@@ -683,7 +683,6 @@ class OrderPrintManager extends EventEmitter {
           <p><b>客戶</b></p>
           <p>姓名 : ${customer.name || '未知'}</p>
           <p>電話 : ${customer.phone || ''}</p>
-          <p>Email : ${customer.email || ''}</p>
           <p>地址 : ${customer.address || ''}</p>
         </div>
 
@@ -702,7 +701,7 @@ class OrderPrintManager extends EventEmitter {
             <tr class="border-top">
               <td colspan="2">總計 (共${itemCount}項)</td>
               <td></td>
-              <td>NT$${grand_total}</td>
+              <td>NT$${Math.round(grand_total)}</td>
             </tr>
           </tbody>
         </table>
