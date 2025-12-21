@@ -502,7 +502,10 @@ class OrderPrintManager extends EventEmitter {
             },
             scaleFactor: 100,
             landscape: false,
-            preferCSSPageSize: true  // 使用 CSS @page 設定（size: 80mm auto）
+            pageSize: {
+              width: 80000,  // 80mm in microns
+              height: 297000  // auto height for thermal printer
+            }
           };
 
           // 如果有設定印表機名稱，使用指定印表機
